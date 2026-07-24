@@ -53,6 +53,19 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Tailwind v4 no longer sets cursor:pointer on buttons — restore it for
+   every clickable control. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]),
+summary {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
 /* Focus ring — accessible, brand-tinted */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--color-brand);

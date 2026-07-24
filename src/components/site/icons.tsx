@@ -15,6 +15,145 @@ const base: SVGProps<SVGSVGElement> = {
 
 type P = SVGProps<SVGSVGElement>;
 
+/* ---- In-call control glyphs ---- */
+export function Mic(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M6 11a6 6 0 0 0 12 0M12 17v3.5M9 20.5h6" />
+    </svg>
+  );
+}
+
+export function MicOff(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M9 9v2a3 3 0 0 0 4.5 2.6M15 12.5V6a3 3 0 0 0-5.9-.7" />
+      <path d="M6 11a6 6 0 0 0 9.3 5M18 11a6 6 0 0 1-.5 2.4M12 17v3.5M9 20.5h6" />
+      <path d="m4 4 16 16" />
+    </svg>
+  );
+}
+
+export function VideoOff(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M15 10.5V8a2 2 0 0 0-2-2H8.5M4 6.5A2 2 0 0 0 3 8v8a2 2 0 0 0 2 2h8a2 2 0 0 0 1.5-.7" />
+      <path d="m15 12 6-3v9l-4-2" />
+      <path d="m3 3 18 18" />
+    </svg>
+  );
+}
+
+export function ScreenShare(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <rect x="3" y="4.5" width="18" height="12" rx="2" />
+      <path d="M9 20.5h6M12 16.5v4" />
+      <path d="M12 8.5v4M10 10.5l2-2 2 2" />
+    </svg>
+  );
+}
+
+export function PhoneEnd(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M3.5 10.5c5-4 11.5-4 16.5 0 .9.7 1 1.6.5 2.4l-1.3 2c-.4.6-1.1.8-1.8.5l-2.4-1a1.4 1.4 0 0 1-.9-1.3v-1.4a10 10 0 0 0-6.2 0v1.4c0 .6-.35 1.1-.9 1.3l-2.4 1c-.7.3-1.4.1-1.8-.5l-1.3-2c-.5-.8-.4-1.7.5-2.4Z" />
+    </svg>
+  );
+}
+
+export function Home(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M4 11.5 12 4l8 7.5" />
+      <path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" />
+      <path d="M10 20v-5h4v5" />
+    </svg>
+  );
+}
+
+export function CalendarDays(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <rect x="3" y="4.5" width="18" height="16" rx="2" />
+      <path d="M3 9h18M8 3v3M16 3v3" />
+      <path d="M7.5 13h.01M12 13h.01M16.5 13h.01M7.5 17h.01M12 17h.01" />
+    </svg>
+  );
+}
+
+export function Users(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 20a5.5 5.5 0 0 1 11 0" />
+      <path d="M16 5.2a3 3 0 0 1 0 5.6M17.5 20a5.5 5.5 0 0 0-3-4.9" />
+    </svg>
+  );
+}
+
+export function MessageSquare(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M4 5h16v11H8l-4 3.5V5Z" />
+      <path d="M8 9.5h8M8 12.5h5" />
+    </svg>
+  );
+}
+
+export function FileText(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M6 3h8l4 4v14H6V3Z" />
+      <path d="M14 3v4h4M9 12h6M9 16h6M9 8h2" />
+    </svg>
+  );
+}
+
+export function Settings(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2.5v2.5M12 19v2.5M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2.5 12H5M19 12h2.5M4.2 19.8 6 18M18 6l1.8-1.8" />
+    </svg>
+  );
+}
+
+export function Plus(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+export function Clock(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  );
+}
+
+export function MapPin(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M12 21c4.5-4.2 7-7.6 7-11a7 7 0 1 0-14 0c0 3.4 2.5 6.8 7 11Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+}
+
+export function Star(p: P) {
+  return (
+    <svg {...base} {...p}>
+      <path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 17l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5Z" />
+    </svg>
+  );
+}
+
 export function CalendarX(p: P) {
   return (
     <svg {...base} {...p}>
