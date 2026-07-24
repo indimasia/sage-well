@@ -60,9 +60,9 @@ export default function AuthForm() {
             type="button"
             onClick={() => setMode(m)}
             aria-pressed={mode === m}
-            className={`rounded-lg py-2 text-sm font-medium transition-colors ${
+            className={`rounded-xl py-2 text-sm font-medium transition-colors ${
               mode === m
-                ? "bg-card text-ink shadow-card"
+                ? "bg-card text-ink ring-1 ring-hairline"
                 : "text-ink-soft hover:text-ink"
             }`}
           >
