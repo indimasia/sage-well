@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+/* ============================================================
+   SageWell design system
+   Calm, trustworthy, clinical-but-warm. Warm paper + deep ink,
+   trustworthy mid-blue, sage + coral reserved for positive acts.
+   ============================================================ */
+
+@theme {
+  /* Surfaces — warm paper, not cold white */
+  --color-paper: #f6f4ef;
+  --color-paper-sunk: #efece4;
+  --color-card: #fbfaf7;
+  --color-ink: #17242e;        /* near-black deep slate for text */
+  --color-ink-soft: #3f5261;   /* secondary text */
+  --color-ink-faint: #6b7a86;  /* muted / captions */
+  --color-hairline: #d9d3c7;   /* warm rule lines */
+
+  /* Primary — calm mid-tone blue */
+  --color-brand-50: #eef4fa;
+  --color-brand-100: #d6e5f4;
+  --color-brand-200: #a9c8e6;
+  --color-brand-400: #4f8bc7;
+  --color-brand: #2b6cb0;
+  --color-brand-600: #245a94;
+  --color-brand-700: #1d4874;
+  --color-brand-900: #12314f;
+
+  /* Accents — reserved for positive actions */
+  --color-sage: #5b8a72;
+  --color-sage-soft: #e4ede7;
+  --color-coral: #d9694a;
+  --color-coral-soft: #f6e2db;
+
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-inter);
+
+  --radius-xl: 1.25rem;
+
+  --shadow-card: 0 1px 2px rgba(23, 36, 46, 0.04), 0 8px 24px -12px rgba(23, 36, 46, 0.12);
+  --shadow-lift: 0 2px 6px rgba(23, 36, 46, 0.06), 0 20px 48px -20px rgba(23, 36, 46, 0.22);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Focus ring — accessible, brand-tinted */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Fraunces display: warm optical serif for large headings only */
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+  font-optical-sizing: auto;
+  letter-spacing: -0.015em;
+}
+
+/* Scroll-reveal — progressive enhancement: only hidden when JS is active,
+   so no-JS / pre-hydration renders fully visible. Respects reduced-motion. */
+.js .reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.js .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .js .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Faint dotted grid — hero texture, not decoration-for-its-own-sake */
+.dot-grid {
+  background-image: radial-gradient(var(--color-hairline) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 40%, transparent 100%);
+}
