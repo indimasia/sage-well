@@ -1,17 +1,19 @@
 import Link from "next/link";
 import AppShell from "@/components/app/AppShell";
 import Conversations from "@/components/app/Conversations";
+import JoinButton from "@/components/app/JoinButton";
+import LocalTime from "@/components/app/LocalTime";
 import {
   ArrowRight,
   Clock,
   Logo,
   MapPin,
+  MessageSquare,
   Plus,
   ShieldCheck,
   Video,
 } from "@/components/site/icons";
 import { ButtonLink } from "@/components/site/ui";
-import { dayLabel, fmtTime } from "@/lib/format";
 import {
   getConversations,
   getCurrentUser,
@@ -122,7 +124,7 @@ export default async function PortalPage({
                 <p className="flex flex-wrap items-center gap-x-3 text-sm text-ink-soft">
                   <span className="inline-flex items-center gap-1">
                     <Clock className="h-3.5 w-3.5" />
-                    {dayLabel(a.start_time)} · {fmtTime(a.start_time)}
+                    <LocalTime iso={a.start_time} mode="day-time" />
                   </span>
                   <span className="inline-flex items-center gap-1 capitalize">
                     {a.visit_type === "video" ? (
@@ -134,21 +136,29 @@ export default async function PortalPage({
                   </span>
                 </p>
               </div>
-              <ButtonLink
-                href={`/session/${a.id}`}
-                variant="accent"
-                className="px-4 py-2 text-sm"
-              >
-                <Video className="h-4 w-4" />
-                Join
-              </ButtonLink>
+              <div className="flex shrink-0 items-center gap-2">
+                <Link
+                  href="#messages"
+                  aria-label="Message your therapist"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-hairline bg-card px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:border-brand-200 hover:text-brand"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="hidden sm:inline">Chat</span>
+                </Link>
+                <JoinButton
+                  href={`/session/${a.id}`}
+                  startIso={a.start_time}
+                  durationMin={a.duration_min}
+                  compact
+                />
+              </div>
             </div>
           ))}
         </div>
       </section>
 
       {/* Messages */}
-      <section className="mt-10">
+      <section id="messages" className="mt-10 scroll-mt-20">
         <h2 className="font-display text-xl font-semibold text-ink">
           Messages
         </h2>

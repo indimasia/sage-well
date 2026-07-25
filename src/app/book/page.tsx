@@ -8,7 +8,8 @@ export const metadata = { title: "Find a therapist" };
 export default async function BookDirectoryPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const therapists = await getTherapists();
+  // Never let someone book themselves — exclude the current user.
+  const therapists = (await getTherapists()).filter((t) => t.id !== user.id);
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 sm:px-8">

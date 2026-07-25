@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Clock, MapPin, Plus, Video } from "@/components/site/icons";
-import { ButtonLink } from "@/components/site/ui";
-import { dayLabel, fmtLongDate, fmtTime } from "@/lib/format";
+import JoinButton from "@/components/app/JoinButton";
+import LocalTime from "@/components/app/LocalTime";
+import { Clock, MapPin, MessageSquare, Video } from "@/components/site/icons";
+import { fmtLongDate } from "@/lib/format";
 import { getCurrentUser, getTherapistAppointments } from "@/lib/queries";
 import type { AppointmentWithPatient } from "@/lib/types";
 
@@ -50,7 +51,7 @@ export default async function DashboardPage() {
           <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
-                Next session · {dayLabel(next.start_time)}
+                Next session · <LocalTime iso={next.start_time} mode="day" />
               </p>
               <p className="mt-2 font-display text-2xl font-semibold text-ink">
                 {next.patient?.name ?? "Client"}
@@ -58,7 +59,8 @@ export default async function DashboardPage() {
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-soft">
                 <span className="inline-flex items-center gap-1.5">
                   <Clock className="h-4 w-4" />
-                  {fmtTime(next.start_time)} · {next.duration_min} min
+                  <LocalTime iso={next.start_time} mode="time" /> ·{" "}
+                  {next.duration_min} min
                 </span>
                 <span className="inline-flex items-center gap-1.5 capitalize">
                   {next.visit_type === "video" ? (
@@ -71,11 +73,19 @@ export default async function DashboardPage() {
                 {next.reason && <span>· {next.reason}</span>}
               </div>
             </div>
-            <div className="flex gap-2">
-              <ButtonLink href={`/session/${next.id}`} variant="accent">
-                <Video className="h-[18px] w-[18px]" />
-                Join call
-              </ButtonLink>
+            <div className="flex flex-wrap gap-2">
+              <JoinButton
+                href={`/session/${next.id}`}
+                startIso={next.start_time}
+                durationMin={next.duration_min}
+              />
+              <Link
+                href="/dashboard/messages"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-hairline bg-card px-5 py-3.5 text-[0.95rem] font-medium text-ink-soft transition-colors hover:border-brand-200 hover:text-brand"
+              >
+                <MessageSquare className="h-[18px] w-[18px]" />
+                Message
+              </Link>
             </div>
           </div>
         </div>
@@ -102,15 +112,9 @@ export default async function DashboardPage() {
 
       {/* Upcoming list */}
       <section className="mt-10">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl font-semibold text-ink">
-            Upcoming appointments
-          </h2>
-          <ButtonLink href="/book" variant="secondary" className="px-4 py-2 text-sm">
-            <Plus className="h-4 w-4" />
-            Book a visit
-          </ButtonLink>
-        </div>
+        <h2 className="font-display text-xl font-semibold text-ink">
+          Upcoming appointments
+        </h2>
         <div className="mt-4 flex flex-col gap-2.5">
           {upcoming.length === 0 && (
             <p className="rounded-xl border border-hairline bg-card p-5 text-sm text-ink-soft">
@@ -175,9 +179,11 @@ function ApptRow({
       </div>
       <div className="text-right">
         <p className="text-sm font-medium text-ink">
-          {dayLabel(appt.start_time)}
+          <LocalTime iso={appt.start_time} mode="day" />
         </p>
-        <p className="text-xs text-ink-faint">{fmtTime(appt.start_time)}</p>
+        <p className="text-xs text-ink-faint">
+          <LocalTime iso={appt.start_time} mode="time" />
+        </p>
       </div>
       <span
         className={`hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-medium capitalize sm:inline ${statusStyle[appt.status]}`}

@@ -14,6 +14,8 @@ export default async function BookTherapistPage({
   const { therapistId } = await params;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  // Can't book yourself.
+  if (therapistId === user.id) redirect("/book");
 
   const therapist = await getTherapist(therapistId);
   if (!therapist) notFound();

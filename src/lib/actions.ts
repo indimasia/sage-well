@@ -27,6 +27,14 @@ export async function bookAppointment(
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Guard: can't book yourself, and only patient accounts can book.
+  if (therapistId === user.id)
+    return { error: "You can't book an appointment with yourself." };
+  if (user.user_metadata?.role === "therapist")
+    return {
+      error: "Booking is for client accounts. Sign in as a client to book.",
+    };
+
   const { error } = await supabase.from("appointments").insert({
     therapist_id: therapistId,
     patient_id: user.id,

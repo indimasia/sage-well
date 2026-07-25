@@ -61,7 +61,7 @@ export default function SessionRoom({
   return (
     <div className="grid min-h-screen grid-cols-1 gap-4 p-4 lg:grid-cols-[1.6fr_1fr]">
       {/* Video panel */}
-      <section className="flex flex-col overflow-hidden rounded-2xl bg-brand-900 text-white">
+      <section className="flex min-h-[55vh] flex-col overflow-hidden rounded-2xl bg-brand-900 text-white lg:min-h-0">
         <div className="flex items-center justify-between px-5 py-4">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-brand-100">
             <Lock className="h-3.5 w-3.5" />

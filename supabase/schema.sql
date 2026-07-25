@@ -135,7 +135,7 @@ drop policy if exists therapists_update_own on public.therapists;
 create policy therapists_update_own on public.therapists
   for update using (id = auth.uid()) with check (id = auth.uid());
 
--- patients: self, or a therapist who shares an appointment
+-- patients: self, or a therapist who shares an appointment or message thread
 drop policy if exists patients_read on public.patients;
 create policy patients_read on public.patients
   for select using (
@@ -143,6 +143,10 @@ create policy patients_read on public.patients
     or exists (
       select 1 from public.appointments a
       where a.patient_id = patients.id and a.therapist_id = auth.uid()
+    )
+    or exists (
+      select 1 from public.threads t
+      where t.patient_id = patients.id and t.therapist_id = auth.uid()
     )
   );
 drop policy if exists patients_update_own on public.patients;
