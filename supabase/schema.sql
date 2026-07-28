@@ -66,9 +66,31 @@ create table if not exists public.messages (
   created_at timestamptz not null default now()
 );
 
+-- Per-user read cursor for a thread (drives unread badges).
+create table if not exists public.thread_reads (
+  thread_id uuid not null references public.threads (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  last_read_at timestamptz not null default now(),
+  primary key (thread_id, user_id)
+);
+
 create index if not exists appointments_therapist_idx on public.appointments (therapist_id, start_time);
 create index if not exists appointments_patient_idx on public.appointments (patient_id, start_time);
 create index if not exists messages_thread_idx on public.messages (thread_id, created_at);
+
+-- Stripe checkout session id, so a paid booking inserts exactly once.
+alter table public.appointments
+  add column if not exists stripe_session_id text unique;
+
+-- thread_reads: each user manages only their own read cursor.
+drop policy if exists thread_reads_all on public.thread_reads;
+create policy thread_reads_all on public.thread_reads
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- Realtime for live chat.
+do $$ begin
+  alter publication supabase_realtime add table public.messages;
+exception when duplicate_object then null; end $$;
 
 -- ---------- Auto-create a profile row when a user signs up ----------
 
@@ -126,6 +148,7 @@ alter table public.appointments  enable row level security;
 alter table public.session_notes enable row level security;
 alter table public.threads       enable row level security;
 alter table public.messages      enable row level security;
+alter table public.thread_reads  enable row level security;
 
 -- therapists: public directory read; owner writes own row
 drop policy if exists therapists_read on public.therapists;

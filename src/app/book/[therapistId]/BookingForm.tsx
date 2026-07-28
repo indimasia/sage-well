@@ -164,13 +164,18 @@ export default function BookingForm({
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending || !startIso}
-        className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-sage px-6 py-3.5 font-medium text-white shadow-card transition-all hover:brightness-95 disabled:opacity-60 sm:w-auto"
-      >
-        {pending ? "Confirming…" : "Confirm booking"}
-      </button>
+      <div className="mt-6 flex flex-wrap items-center gap-4">
+        <button
+          type="submit"
+          disabled={pending || !startIso}
+          className="inline-flex w-full items-center justify-center rounded-full bg-sage px-6 py-3.5 font-medium text-white shadow-card transition-all hover:brightness-95 disabled:opacity-60 sm:w-auto"
+        >
+          {pending ? "Redirecting…" : "Confirm & pay · $120"}
+        </button>
+        <span className="text-sm text-ink-faint">
+          Secure checkout via Stripe.
+        </span>
+      </div>
     </form>
   );
 }

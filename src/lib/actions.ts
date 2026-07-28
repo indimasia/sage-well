@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { SESSION_PRICE_CENTS, stripe } from "@/lib/stripe";
 
 export type BookResult = { error?: string };
 
@@ -35,6 +37,41 @@ export async function bookAppointment(
       error: "Booking is for client accounts. Sign in as a client to book.",
     };
 
+  // With Stripe configured → pay first, insert on successful return.
+  if (stripe) {
+    const h = await headers();
+    const origin =
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: SESSION_PRICE_CENTS,
+            product_data: { name: `SageWell session · ${reason}` },
+          },
+        },
+      ],
+      metadata: {
+        therapist_id: therapistId,
+        patient_id: user.id,
+        start_time,
+        visit_type,
+        reason,
+      },
+      success_url: `${origin}/book/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/book/${therapistId}`,
+    });
+
+    if (!session.url) return { error: "Could not start checkout." };
+    redirect(session.url);
+  }
+
+  // No Stripe key → direct booking (demo still works).
   const { error } = await supabase.from("appointments").insert({
     therapist_id: therapistId,
     patient_id: user.id,
@@ -45,15 +82,49 @@ export async function bookAppointment(
   });
 
   if (error) {
-    // Most likely cause: a therapist account (no patients row) tried to book.
     return {
       error:
         "Could not book. Booking is available to client/patient accounts only.",
     };
   }
 
+  // Open a chat thread with this therapist (no-op if it already exists).
+  await supabase
+    .from("threads")
+    .upsert(
+      { therapist_id: therapistId, patient_id: user.id },
+      { onConflict: "therapist_id,patient_id", ignoreDuplicates: true },
+    );
+
   revalidatePath("/portal");
   redirect("/portal?booked=1");
+}
+
+/** Ensure a message thread exists with a therapist, then open it. */
+export async function openThread(therapistId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  let { data: thread } = await supabase
+    .from("threads")
+    .select("id")
+    .eq("therapist_id", therapistId)
+    .eq("patient_id", user.id)
+    .maybeSingle();
+
+  if (!thread) {
+    const { data: created } = await supabase
+      .from("threads")
+      .insert({ therapist_id: therapistId, patient_id: user.id })
+      .select("id")
+      .single();
+    thread = created;
+  }
+
+  redirect(`/portal/messages?thread=${thread?.id ?? ""}`);
 }
 
 export type NoteResult = { ok?: boolean; error?: string };

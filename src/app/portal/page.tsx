@@ -1,6 +1,5 @@
 import Link from "next/link";
 import AppShell from "@/components/app/AppShell";
-import Conversations from "@/components/app/Conversations";
 import JoinButton from "@/components/app/JoinButton";
 import LocalTime from "@/components/app/LocalTime";
 import {
@@ -14,11 +13,8 @@ import {
   Video,
 } from "@/components/site/icons";
 import { ButtonLink } from "@/components/site/ui";
-import {
-  getConversations,
-  getCurrentUser,
-  getPatientAppointments,
-} from "@/lib/queries";
+import { openThread } from "@/lib/actions";
+import { getCurrentUser, getPatientAppointments } from "@/lib/queries";
 
 export const metadata = { title: "Client portal" };
 
@@ -67,7 +63,6 @@ export default async function PortalPage({
   }
 
   const appts = await getPatientAppointments();
-  const conversations = await getConversations();
   // Server Component renders once per request — a live clock is correct here.
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
@@ -137,14 +132,16 @@ export default async function PortalPage({
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <Link
-                  href="#messages"
-                  aria-label="Message your therapist"
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-hairline bg-card px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:border-brand-200 hover:text-brand"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  <span className="hidden sm:inline">Chat</span>
-                </Link>
+                <form action={openThread.bind(null, a.therapist_id)}>
+                  <button
+                    type="submit"
+                    aria-label="Message your therapist"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-hairline bg-card px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:border-brand-200 hover:text-brand"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    <span className="hidden sm:inline">Chat</span>
+                  </button>
+                </form>
                 <JoinButton
                   href={`/session/${a.id}`}
                   startIso={a.start_time}
@@ -154,20 +151,6 @@ export default async function PortalPage({
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* Messages */}
-      <section id="messages" className="mt-10 scroll-mt-20">
-        <h2 className="font-display text-xl font-semibold text-ink">
-          Messages
-        </h2>
-        <div className="mt-4">
-          <Conversations
-            conversations={conversations}
-            currentUserId={user.id}
-            viewerRole="patient"
-          />
         </div>
       </section>
 

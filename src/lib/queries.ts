@@ -105,16 +105,35 @@ export type Conversation = {
   therapist: { id: string; name: string } | null;
   patient: { id: string; name: string } | null;
   messages: Message[];
+  lastReadAt: string | null;
 };
 
-/** Threads the user participates in, with profiles + messages (oldest first). */
+/** Threads the user participates in, with profiles + messages (oldest first)
+ * and this user's read cursor for unread badges. */
 export async function getConversations(): Promise<Conversation[]> {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { data } = await supabase
     .from("threads")
     .select(
       "id, therapist:therapists(id,name), patient:patients(id,name), messages(*)",
     )
     .order("created_at", { ascending: true, referencedTable: "messages" });
-  return (data as unknown as Conversation[]) ?? [];
+
+  const { data: reads } = await supabase
+    .from("thread_reads")
+    .select("thread_id, last_read_at")
+    .eq("user_id", user?.id ?? "");
+
+  const readMap = new Map(
+    (reads ?? []).map((r) => [r.thread_id as string, r.last_read_at as string]),
+  );
+
+  return ((data as unknown as Conversation[]) ?? []).map((c) => ({
+    ...c,
+    lastReadAt: readMap.get(c.id) ?? null,
+  }));
 }
