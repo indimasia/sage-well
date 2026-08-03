@@ -31,6 +31,10 @@ export default async function BookingSuccessPage({
         reason: m.reason ?? "Therapy session",
         status: "upcoming",
         stripe_session_id: session.id,
+        amount_cents: session.amount_total ?? 12000,
+        currency: session.currency ?? "usd",
+        payment_status: "paid",
+        paid_at: new Date(session.created * 1000).toISOString(),
       });
       await supabase
         .from("threads")

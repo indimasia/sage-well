@@ -1,12 +1,12 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { MapPin, Video } from "@/components/site/icons";
 import { bookAppointment, type BookResult } from "@/lib/actions";
 
 const TIMES = {
   Morning: ["09:00", "10:00", "11:00"],
-  Afternoon: ["13:00", "14:00", "15:00", "16:00"],
+  Afternoon: ["13:00", "14:00", "15:00", "16:00", "17:00"],
 };
 
 function nextDays(n: number) {
@@ -29,21 +29,40 @@ export default function BookingForm({
 }: {
   therapistId: string;
 }) {
-  const days = useMemo(() => nextDays(7), []);
-  const [date, setDate] = useState(days[1].iso);
+  const [days, setDays] = useState<ReturnType<typeof nextDays>>([]);
+  const [date, setDate] = useState("");
   const [time, setTime] = useState("10:00");
   const [visit, setVisit] = useState<"video" | "in_person">("video");
+  const [timeZone, setTimeZone] = useState("");
+  const [now, setNow] = useState(0);
 
   const [state, action, pending] = useActionState<BookResult, FormData>(
     bookAppointment.bind(null, therapistId),
     {},
   );
 
-  // Local date+time → ISO (UTC) for storage.
+  // Build browser-local dates after mount. Server timezone must never choose
+  // a date or timestamp for the patient.
+  useEffect(() => {
+    const localDays = nextDays(7);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDays(localDays);
+    setDate(localDays[1].iso);
+    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    setNow(Date.now());
+  }, []);
+
+  // Browser-local date+time → one timezone-safe instant for storage.
   const startIso = useMemo(() => {
+    if (!date) return "";
     const dt = new Date(`${date}T${time}:00`);
     return isNaN(+dt) ? "" : dt.toISOString();
   }, [date, time]);
+
+  // A slot is unbookable once its start moment has passed (mostly "today").
+  const slotPast = (t: string) =>
+    !!date && now > 0 && new Date(`${date}T${t}:00`).getTime() <= now;
+  const selectedPast = !!startIso && now > 0 && new Date(startIso).getTime() <= now;
 
   return (
     <form action={action} className="mt-8">
@@ -79,6 +98,9 @@ export default function BookingForm({
       {/* Date */}
       <p className="mt-6 text-sm font-semibold text-ink">Pick a day</p>
       <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+        {days.length === 0 && (
+          <span className="h-16 w-80 animate-pulse rounded-xl bg-paper-sunk" />
+        )}
         {days.map((day) => (
           <button
             key={day.iso}
@@ -100,6 +122,11 @@ export default function BookingForm({
 
       {/* Time */}
       <p className="mt-6 text-sm font-semibold text-ink">Pick a time</p>
+      {timeZone && (
+        <p className="mt-1 text-xs text-ink-faint">
+          Times shown in {timeZone.replaceAll("_", " ")}.
+        </p>
+      )}
       <div className="mt-2 space-y-3">
         {Object.entries(TIMES).map(([label, slots]) => (
           <div key={label}>
@@ -107,21 +134,28 @@ export default function BookingForm({
               {label}
             </p>
             <div className="flex flex-wrap gap-2">
-              {slots.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setTime(s)}
-                  aria-pressed={time === s}
-                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                    time === s
-                      ? "border-brand bg-brand-50 text-brand"
-                      : "border-hairline bg-card text-ink-soft hover:border-brand-200"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
+              {slots.map((s) => {
+                const past = slotPast(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    disabled={past}
+                    onClick={() => setTime(s)}
+                    aria-pressed={time === s}
+                    title={past ? "This time has already passed" : undefined}
+                    className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                      past
+                        ? "cursor-not-allowed border-hairline bg-paper-sunk text-ink-faint line-through"
+                        : time === s
+                          ? "border-brand bg-brand-50 text-brand"
+                          : "border-hairline bg-card text-ink-soft hover:border-brand-200"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -155,6 +189,15 @@ export default function BookingForm({
         </span>
       </label>
 
+      {selectedPast && (
+        <p
+          role="alert"
+          className="mt-4 rounded-lg border border-coral/40 bg-coral-soft px-3 py-2 text-sm text-coral"
+        >
+          That time has already passed. Pick a later slot or a future day.
+        </p>
+      )}
+
       {state.error && (
         <p
           role="alert"
@@ -167,10 +210,14 @@ export default function BookingForm({
       <div className="mt-6 flex flex-wrap items-center gap-4">
         <button
           type="submit"
-          disabled={pending || !startIso}
-          className="inline-flex w-full items-center justify-center rounded-full bg-sage px-6 py-3.5 font-medium text-white shadow-card transition-all hover:brightness-95 disabled:opacity-60 sm:w-auto"
+          disabled={pending || !startIso || selectedPast}
+          className="inline-flex w-full items-center justify-center rounded-full bg-sage px-6 py-3.5 font-medium text-white shadow-card transition-all hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          {pending ? "Redirecting…" : "Confirm & pay · $120"}
+          {pending
+            ? "Redirecting…"
+            : selectedPast
+              ? "Pick a future time"
+              : "Confirm booking · $120"}
         </button>
         <span className="text-sm text-ink-faint">
           Secure checkout via Stripe.

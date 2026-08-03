@@ -31,10 +31,22 @@ create table if not exists public.appointments (
   therapist_id uuid not null references public.therapists (id) on delete cascade,
   patient_id uuid not null references public.patients (id) on delete cascade,
   start_time timestamptz not null,
+  started_at timestamptz,
+  ended_at timestamptz,
   duration_min int not null default 50,
   visit_type text not null default 'video' check (visit_type in ('video','in_person')),
   status text not null default 'upcoming' check (status in ('upcoming','completed','cancelled')),
   reason text not null default '',
+  stripe_session_id text unique,
+  amount_cents int not null default 12000
+    constraint appointments_amount_nonnegative check (amount_cents >= 0),
+  currency text not null default 'usd',
+  payment_status text not null default 'demo'
+    constraint appointments_payment_status_check
+    check (payment_status in ('paid','demo','refunded','failed')),
+  paid_at timestamptz,
+  constraint appointments_call_times_check
+    check (ended_at is null or (started_at is not null and ended_at >= started_at)),
   created_at timestamptz not null default now()
 );
 
@@ -78,9 +90,38 @@ create index if not exists appointments_therapist_idx on public.appointments (th
 create index if not exists appointments_patient_idx on public.appointments (patient_id, start_time);
 create index if not exists messages_thread_idx on public.messages (thread_id, created_at);
 
--- Stripe checkout session id, so a paid booking inserts exactly once.
+-- Appointment lifecycle + billing fields. Defaults backfill existing demo rows.
 alter table public.appointments
   add column if not exists stripe_session_id text unique;
+alter table public.appointments
+  add column if not exists started_at timestamptz;
+alter table public.appointments
+  add column if not exists ended_at timestamptz;
+alter table public.appointments
+  add column if not exists amount_cents int not null default 12000;
+alter table public.appointments
+  add column if not exists currency text not null default 'usd';
+alter table public.appointments
+  add column if not exists payment_status text not null default 'demo';
+alter table public.appointments
+  add column if not exists paid_at timestamptz;
+
+do $$ begin
+  alter table public.appointments
+    add constraint appointments_amount_nonnegative check (amount_cents >= 0);
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter table public.appointments
+    add constraint appointments_payment_status_check
+    check (payment_status in ('paid','demo','refunded','failed'));
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter table public.appointments
+    add constraint appointments_call_times_check
+    check (ended_at is null or (started_at is not null and ended_at >= started_at));
+exception when duplicate_object then null; end $$;
 
 -- thread_reads: each user manages only their own read cursor.
 drop policy if exists thread_reads_all on public.thread_reads;
@@ -182,16 +223,56 @@ create policy appts_read on public.appointments
   for select using (therapist_id = auth.uid() or patient_id = auth.uid());
 drop policy if exists appts_insert on public.appointments;
 create policy appts_insert on public.appointments
-  for insert with check (patient_id = auth.uid());
+  for insert with check (
+    patient_id = auth.uid()
+    and status = 'upcoming'
+    and started_at is null
+    and ended_at is null
+  );
 drop policy if exists appts_update on public.appointments;
-create policy appts_update on public.appointments
-  for update using (therapist_id = auth.uid() or patient_id = auth.uid())
-  with check (therapist_id = auth.uid() or patient_id = auth.uid());
+drop policy if exists appts_update_therapist on public.appointments;
+create policy appts_update_therapist on public.appointments
+  for update using (therapist_id = auth.uid())
+  with check (therapist_id = auth.uid());
 
--- session_notes: only the authoring therapist
+-- Notes: therapist writes; patient reads only after therapist ends the call.
 drop policy if exists notes_all on public.session_notes;
-create policy notes_all on public.session_notes
-  for all using (therapist_id = auth.uid()) with check (therapist_id = auth.uid());
+drop policy if exists notes_read on public.session_notes;
+create policy notes_read on public.session_notes
+  for select using (
+    therapist_id = auth.uid()
+    or exists (
+      select 1 from public.appointments a
+      where a.id = session_notes.appointment_id
+        and a.patient_id = auth.uid()
+        and a.ended_at is not null
+    )
+  );
+drop policy if exists notes_insert_therapist on public.session_notes;
+create policy notes_insert_therapist on public.session_notes
+  for insert with check (
+    therapist_id = auth.uid()
+    and exists (
+      select 1 from public.appointments a
+      where a.id = session_notes.appointment_id
+        and a.therapist_id = auth.uid()
+        and a.started_at is not null
+        and a.ended_at is null
+    )
+  );
+drop policy if exists notes_update_therapist on public.session_notes;
+create policy notes_update_therapist on public.session_notes
+  for update using (therapist_id = auth.uid())
+  with check (
+    therapist_id = auth.uid()
+    and exists (
+      select 1 from public.appointments a
+      where a.id = session_notes.appointment_id
+        and a.therapist_id = auth.uid()
+        and a.started_at is not null
+        and a.ended_at is null
+    )
+  );
 
 -- threads: participants only
 drop policy if exists threads_read on public.threads;

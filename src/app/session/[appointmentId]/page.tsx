@@ -17,8 +17,9 @@ export default async function SessionPage({
   const appt = await getAppointment(appointmentId);
   if (!appt) notFound();
 
-  const isTherapist = user.role === "therapist" && appt.therapist_id === user.id;
-  const note = isTherapist ? await getSessionNote(appointmentId) : null;
+  const isTherapist = appt.therapist_id === user.id;
+  // Patient note visibility is enforced by RLS and opens only after ended_at.
+  const note = await getSessionNote(appointmentId);
 
   const otherName = isTherapist
     ? (appt.patient?.name ?? "Client")
@@ -30,7 +31,11 @@ export default async function SessionPage({
         appointmentId={appointmentId}
         otherName={otherName}
         reason={appt.reason}
-        canEdit={isTherapist}
+        viewerRole={isTherapist ? "therapist" : "patient"}
+        startIso={appt.start_time}
+        startedAt={appt.started_at}
+        endedAt={appt.ended_at}
+        visitType={appt.visit_type}
         note={note}
         backHref={isTherapist ? "/dashboard" : "/portal"}
       />

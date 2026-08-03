@@ -23,10 +23,17 @@ export type Appointment = {
   therapist_id: string;
   patient_id: string;
   start_time: string;
+  started_at: string | null;
+  ended_at: string | null;
   duration_min: number;
   visit_type: VisitType;
   status: AppointmentStatus;
   reason: string;
+  stripe_session_id: string | null;
+  amount_cents: number;
+  currency: string;
+  payment_status: "paid" | "demo" | "refunded" | "failed";
+  paid_at: string | null;
   created_at: string;
 };
 
@@ -54,4 +61,8 @@ export type Message = {
 export type AppointmentWithPatient = Appointment & { patient: Patient | null };
 export type AppointmentWithTherapist = Appointment & {
   therapist: Therapist | null;
+};
+
+export type PatientAppointment = AppointmentWithTherapist & {
+  note: SessionNote | null;
 };

@@ -18,10 +18,24 @@ export default async function DashboardPage() {
   const now = Date.now();
 
   const upcoming = appts
-    .filter((a) => a.status === "upcoming" && +new Date(a.start_time) >= now)
-    .sort((a, b) => +new Date(a.start_time) - +new Date(b.start_time));
+    .filter(
+      (a) =>
+        a.status === "upcoming" &&
+        !a.ended_at &&
+        (+new Date(a.start_time) >= now || Boolean(a.started_at)),
+    )
+    .sort((a, b) => {
+      if (a.started_at && !b.started_at) return -1;
+      if (!a.started_at && b.started_at) return 1;
+      return +new Date(a.start_time) - +new Date(b.start_time);
+    });
   const past = appts
-    .filter((a) => a.status !== "upcoming" || +new Date(a.start_time) < now)
+    .filter(
+      (a) =>
+        Boolean(a.ended_at) ||
+        a.status !== "upcoming" ||
+        (+new Date(a.start_time) < now && !a.started_at),
+    )
     .sort((a, b) => +new Date(b.start_time) - +new Date(a.start_time));
 
   const next = upcoming[0];
@@ -74,11 +88,16 @@ export default async function DashboardPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <JoinButton
-                href={`/session/${next.id}`}
-                startIso={next.start_time}
-                durationMin={next.duration_min}
-              />
+              {next.visit_type === "video" && (
+                <JoinButton
+                  appointmentId={next.id}
+                  href={`/session/${next.id}`}
+                  startIso={next.start_time}
+                  viewerRole="therapist"
+                  startedAt={next.started_at}
+                  endedAt={next.ended_at}
+                />
+              )}
               <Link
                 href="/dashboard/messages"
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-hairline bg-card px-5 py-3.5 text-[0.95rem] font-medium text-ink-soft transition-colors hover:border-brand-200 hover:text-brand"

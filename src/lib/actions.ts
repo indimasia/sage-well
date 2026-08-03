@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { SESSION_PRICE_CENTS, stripe } from "@/lib/stripe";
 
 export type BookResult = { error?: string };
+export type ThreadResult = { error?: string };
+export type CallResult = { error?: string };
 
 /** Book an appointment. RLS requires patient_id to be the signed-in user,
  * so only patient accounts can complete a booking. */
@@ -22,6 +24,8 @@ export async function bookAppointment(
 
   if (!start_time) return { error: "Pick a date and time." };
   if (!consent) return { error: "Please accept the privacy consent to continue." };
+  if (new Date(start_time).getTime() <= Date.now())
+    return { error: "That time has already passed. Pick a later slot." };
 
   const supabase = await createClient();
   const {
@@ -79,6 +83,9 @@ export async function bookAppointment(
     visit_type,
     reason,
     status: "upcoming",
+    amount_cents: SESSION_PRICE_CENTS,
+    currency: "usd",
+    payment_status: "demo",
   });
 
   if (error) {
@@ -101,33 +108,119 @@ export async function bookAppointment(
 }
 
 /** Ensure a message thread exists with a therapist, then open it. */
-export async function openThread(therapistId: string) {
+export async function openThread(
+  therapistId: string,
+  _prev: ThreadResult,
+  _formData: FormData,
+): Promise<ThreadResult> {
+  void _prev;
+  void _formData;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  let { data: thread } = await supabase
+  const { data: patient } = await supabase
+    .from("patients")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!patient) return { error: "Chat is available to patient accounts." };
+
+  const { data: therapist } = await supabase
+    .from("therapists")
+    .select("id")
+    .eq("id", therapistId)
+    .maybeSingle();
+  if (!therapist) return { error: "Therapist could not be found." };
+
+  const existing = await supabase
     .from("threads")
     .select("id")
     .eq("therapist_id", therapistId)
     .eq("patient_id", user.id)
     .maybeSingle();
+  if (existing.error) return { error: "Could not load chat. Try again." };
+
+  let thread = existing.data;
 
   if (!thread) {
-    const { data: created } = await supabase
+    const created = await supabase
       .from("threads")
       .insert({ therapist_id: therapistId, patient_id: user.id })
       .select("id")
       .single();
-    thread = created;
+
+    if (created.error) {
+      // Another request may have created the unique therapist/patient pair.
+      const raced = await supabase
+        .from("threads")
+        .select("id")
+        .eq("therapist_id", therapistId)
+        .eq("patient_id", user.id)
+        .maybeSingle();
+      thread = raced.data;
+    } else {
+      thread = created.data;
+    }
   }
 
-  redirect(`/portal/messages?thread=${thread?.id ?? ""}`);
+  if (!thread?.id) return { error: "Could not open chat. Try again." };
+  redirect(`/portal/messages?thread=${thread.id}`);
 }
 
 export type NoteResult = { ok?: boolean; error?: string };
+
+/** Start a booked video visit. Server authorization requires its therapist. */
+export async function startCall(
+  appointmentId: string,
+  _prev: CallResult,
+  _formData: FormData,
+): Promise<CallResult> {
+  void _prev;
+  void _formData;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: appointment, error: readError } = await supabase
+    .from("appointments")
+    .select(
+      "id, therapist_id, start_time, duration_min, visit_type, status, started_at, ended_at",
+    )
+    .eq("id", appointmentId)
+    .maybeSingle();
+
+  if (readError || !appointment) return { error: "Session could not be loaded." };
+  if (appointment.therapist_id !== user.id)
+    return { error: "Only the booked therapist can start this call." };
+  if (appointment.visit_type !== "video")
+    return { error: "This appointment is not a video visit." };
+  if (appointment.ended_at || appointment.status === "completed")
+    return { error: "This call has already ended." };
+  if (appointment.started_at) redirect(`/session/${appointmentId}`);
+
+  const opensAt = +new Date(appointment.start_time) - 10 * 60_000;
+  if (Date.now() < opensAt)
+    return { error: "Call opens 10 minutes before the scheduled time." };
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({ started_at: new Date().toISOString() })
+    .eq("id", appointmentId)
+    .eq("therapist_id", user.id)
+    .is("started_at", null)
+    .is("ended_at", null);
+
+  if (error) return { error: "Could not start call. Try again." };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/portal");
+  redirect(`/session/${appointmentId}`);
+}
 
 /** Upsert SOAP session notes. RLS restricts writes to the authoring therapist. */
 export async function saveNote(
@@ -140,6 +233,19 @@ export async function saveNote(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
+
+  const { data: appointment, error: appointmentError } = await supabase
+    .from("appointments")
+    .select("id, therapist_id, started_at, ended_at")
+    .eq("id", appointmentId)
+    .maybeSingle();
+
+  if (appointmentError || !appointment)
+    return { error: "Session could not be loaded." };
+  if (appointment.therapist_id !== user.id)
+    return { error: "Only the treating therapist can edit notes." };
+  if (!appointment.started_at) return { error: "Start the call before saving notes." };
+  if (appointment.ended_at) return { error: "This session record is closed." };
 
   const row = {
     appointment_id: appointmentId,
@@ -157,6 +263,26 @@ export async function saveNote(
 
   if (error)
     return { error: "Could not save. Only the treating therapist can edit notes." };
+
+  if (formData.get("intent") === "end") {
+    const { error: endError } = await supabase
+      .from("appointments")
+      .update({
+        ended_at: new Date().toISOString(),
+        status: "completed",
+      })
+      .eq("id", appointmentId)
+      .eq("therapist_id", user.id)
+      .is("ended_at", null);
+
+    if (endError)
+      return { error: "Notes saved, but call could not end. Try again." };
+
+    revalidatePath("/dashboard");
+    revalidatePath("/portal");
+    revalidatePath(`/session/${appointmentId}`);
+    redirect("/dashboard");
+  }
 
   revalidatePath(`/session/${appointmentId}`);
   return { ok: true };

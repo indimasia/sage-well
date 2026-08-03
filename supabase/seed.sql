@@ -62,9 +62,14 @@ begin
   ) p;
 
   -- Completed (past) with filler patients
-  insert into public.appointments (therapist_id, patient_id, start_time, visit_type, status, reason)
+  insert into public.appointments (
+    therapist_id, patient_id, start_time, started_at, ended_at,
+    visit_type, status, reason
+  )
   select t.id, p.id,
          now() - (p.rn * interval '2 day'),
+         now() - (p.rn * interval '2 day'),
+         now() - (p.rn * interval '2 day') + interval '50 minute',
          'video', 'completed',
          'Session recap'
   from unnest(coalesce(real_ther,'{}')) as t(id)

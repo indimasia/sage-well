@@ -1,28 +1,22 @@
 import Link from "next/link";
 import AppShell from "@/components/app/AppShell";
+import BillingHistory from "@/components/app/BillingHistory";
 import JoinButton from "@/components/app/JoinButton";
 import LocalTime from "@/components/app/LocalTime";
+import PatientChatButton from "@/components/app/PatientChatButton";
 import {
   ArrowRight,
   Clock,
   Logo,
   MapPin,
-  MessageSquare,
   Plus,
   ShieldCheck,
   Video,
 } from "@/components/site/icons";
 import { ButtonLink } from "@/components/site/ui";
-import { openThread } from "@/lib/actions";
 import { getCurrentUser, getPatientAppointments } from "@/lib/queries";
 
 export const metadata = { title: "Client portal" };
-
-const invoices = [
-  { id: "INV-1042", date: "Jun 12", amount: "$120.00", status: "Paid" },
-  { id: "INV-1031", date: "May 29", amount: "$120.00", status: "Paid" },
-  { id: "INV-1020", date: "May 15", amount: "$120.00", status: "Paid" },
-];
 
 export default async function PortalPage({
   searchParams,
@@ -67,8 +61,27 @@ export default async function PortalPage({
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   const upcoming = appts
-    .filter((a) => a.status === "upcoming" && +new Date(a.start_time) >= now)
-    .sort((a, b) => +new Date(a.start_time) - +new Date(b.start_time));
+    .filter(
+      (a) =>
+        a.status === "upcoming" &&
+        !a.ended_at &&
+        (+new Date(a.start_time) >= now || Boolean(a.started_at)),
+    )
+    .sort((a, b) => {
+      if (a.started_at && !b.started_at) return -1;
+      if (!a.started_at && b.started_at) return 1;
+      return +new Date(a.start_time) - +new Date(b.start_time);
+    });
+  const history = appts
+    .filter((a) => Boolean(a.ended_at))
+    .sort(
+      (a, b) =>
+        +new Date(b.started_at ?? b.start_time) -
+        +new Date(a.started_at ?? a.start_time),
+    );
+  const billing = [...appts].sort(
+    (a, b) => +new Date(b.created_at) - +new Date(a.created_at),
+  );
 
   return (
     <AppShell name={user.name} email={user.email} role={user.role}>
@@ -132,24 +145,107 @@ export default async function PortalPage({
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <form action={openThread.bind(null, a.therapist_id)}>
-                  <button
-                    type="submit"
-                    aria-label="Message your therapist"
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-hairline bg-card px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:border-brand-200 hover:text-brand"
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    <span className="hidden sm:inline">Chat</span>
-                  </button>
-                </form>
-                <JoinButton
-                  href={`/session/${a.id}`}
-                  startIso={a.start_time}
-                  durationMin={a.duration_min}
-                  compact
-                />
+                <PatientChatButton therapistId={a.therapist_id} />
+                {a.visit_type === "video" && (
+                  <JoinButton
+                    appointmentId={a.id}
+                    href={`/session/${a.id}`}
+                    startIso={a.start_time}
+                    viewerRole="patient"
+                    startedAt={a.started_at}
+                    endedAt={a.ended_at}
+                    compact
+                  />
+                )}
               </div>
             </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Completed video visit records */}
+      <section className="mt-10">
+        <h2 className="font-display text-xl font-semibold text-ink">
+          Session history
+        </h2>
+        <p className="mt-1 text-sm text-ink-soft">
+          Completed call times and therapist notes.
+        </p>
+        <div className="mt-4 space-y-3">
+          {history.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-hairline bg-card p-6 text-sm text-ink-soft">
+              Completed video visits will appear here after your therapist ends the call.
+            </div>
+          )}
+          {history.map((item) => (
+            <article
+              key={item.id}
+              className="rounded-2xl border border-hairline bg-card p-5"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-medium text-ink">
+                    {item.therapist?.name ?? "Therapist"}
+                  </h3>
+                  <p className="mt-1 text-sm text-ink-soft">
+                    {item.reason || "Therapy session"}
+                  </p>
+                </div>
+                <Link
+                  href={`/session/${item.id}`}
+                  className="rounded-full border border-brand-100 bg-brand-50 px-3.5 py-2 text-sm font-medium text-brand hover:bg-brand-100"
+                >
+                  View record
+                </Link>
+              </div>
+              <dl className="mt-4 grid grid-cols-1 gap-3 rounded-xl bg-paper-sunk/60 p-4 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-ink-faint">
+                    Call started
+                  </dt>
+                  <dd className="mt-1 text-ink">
+                    <LocalTime iso={item.started_at ?? item.start_time} mode="day-time" />
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-ink-faint">
+                    Call ended
+                  </dt>
+                  <dd className="mt-1 text-ink">
+                    {item.ended_at ? (
+                      <LocalTime iso={item.ended_at} mode="day-time" />
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+              </dl>
+              {item.note ? (
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {(
+                    [
+                      ["Subjective", item.note.subjective],
+                      ["Objective", item.note.objective],
+                      ["Assessment", item.note.assessment],
+                      ["Plan", item.note.plan],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <div key={label}>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                        {label}
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-ink-soft">
+                        {value || "—"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-ink-faint">
+                  Therapist did not add notes for this session.
+                </p>
+              )}
+            </article>
           ))}
         </div>
       </section>
@@ -159,26 +255,12 @@ export default async function PortalPage({
         <h2 className="font-display text-xl font-semibold text-ink">
           Billing history
         </h2>
-        <div className="mt-4 overflow-hidden rounded-2xl border border-hairline bg-card">
-          {invoices.map((inv, i) => (
-            <div
-              key={inv.id}
-              className={`flex items-center justify-between px-5 py-3.5 text-sm ${
-                i > 0 ? "border-t border-hairline" : ""
-              }`}
-            >
-              <span className="font-medium text-ink">{inv.id}</span>
-              <span className="text-ink-faint">{inv.date}</span>
-              <span className="text-ink-soft">{inv.amount}</span>
-              <span className="rounded-full bg-sage-soft px-2.5 py-0.5 text-xs font-medium text-sage">
-                {inv.status}
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-ink-faint">
-          Invoices are illustrative — no live payment processing in this demo.
+        <p className="mt-1 text-sm text-ink-soft">
+          Select any row for appointment and payment details.
         </p>
+        <div className="mt-4">
+          <BillingHistory appointments={billing} />
+        </div>
       </section>
     </AppShell>
   );

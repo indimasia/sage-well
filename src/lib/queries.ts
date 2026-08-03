@@ -3,6 +3,7 @@ import type {
   AppointmentWithPatient,
   AppointmentWithTherapist,
   Message,
+  PatientAppointment,
   SessionNote,
   Therapist,
 } from "@/lib/types";
@@ -35,14 +36,14 @@ export async function getTherapistAppointments(): Promise<
 
 /** Appointments for the signed-in patient, joined with therapist. */
 export async function getPatientAppointments(): Promise<
-  AppointmentWithTherapist[]
+  PatientAppointment[]
 > {
   const supabase = await createClient();
   const { data } = await supabase
     .from("appointments")
-    .select("*, therapist:therapists(*)")
+    .select("*, therapist:therapists(*), note:session_notes(*)")
     .order("start_time", { ascending: true });
-  return (data as AppointmentWithTherapist[]) ?? [];
+  return (data as unknown as PatientAppointment[]) ?? [];
 }
 
 /** Public therapist directory. */

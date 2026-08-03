@@ -12,6 +12,7 @@ type Props = {
 
 const patientNav = [
   { href: "/portal", label: "Home" },
+  { href: "/portal/history", label: "History" },
   { href: "/portal/messages", label: "Messages" },
   { href: "/book", label: "Book" },
 ];

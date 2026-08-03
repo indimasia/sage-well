@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import LocalTime from "@/components/app/LocalTime";
 import { MessageSquare } from "@/components/site/icons";
-import { fmtTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { Conversation } from "@/lib/queries";
 import type { Message } from "@/lib/types";
@@ -37,6 +37,7 @@ export default function Messenger({
   );
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const other = (c: Conversation) =>
@@ -122,13 +123,21 @@ export default function Messenger({
     const body = draft.trim();
     if (!body || !selected || sending) return;
     setSending(true);
-    setDraft("");
-    const { data } = await supabase
-      .from("messages")
-      .insert({ thread_id: selected.id, sender_id: currentUserId, body })
-      .select()
-      .single();
-    if (data) {
+    setSendError(null);
+
+    try {
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({ thread_id: selected.id, sender_id: currentUserId, body })
+        .select()
+        .single();
+
+      if (error || !data) {
+        setSendError("Message failed to send. Try again.");
+        return;
+      }
+
+      setDraft("");
       const m = data as Message;
       setConvos((prev) =>
         prev.map((c) =>
@@ -137,8 +146,11 @@ export default function Messenger({
             : c,
         ),
       );
+    } catch {
+      setSendError("Message failed to send. Check your connection.");
+    } finally {
+      setSending(false);
     }
-    setSending(false);
   }
 
   if (convos.length === 0) {
@@ -188,7 +200,7 @@ export default function Messenger({
                     </span>
                     {last && (
                       <span className="shrink-0 text-[0.68rem] text-ink-faint">
-                        {fmtTime(last.created_at)}
+                        <LocalTime iso={last.created_at} mode="time" />
                       </span>
                     )}
                   </span>
@@ -264,7 +276,7 @@ export default function Messenger({
                       {m.body}
                     </div>
                     <span className="mt-1 text-[0.66rem] text-ink-faint">
-                      {fmtTime(m.created_at)}
+                      <LocalTime iso={m.created_at} mode="time" />
                     </span>
                   </div>
                 );
@@ -290,9 +302,24 @@ export default function Messenger({
                 disabled={sending || !draft.trim()}
                 className="shrink-0 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
               >
-                Send
+                {sending ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    Sending
+                  </span>
+                ) : (
+                  "Send"
+                )}
               </button>
             </form>
+            {sendError && (
+              <p
+                role="alert"
+                className="border-t border-coral/30 bg-coral-soft px-4 py-2 text-xs text-coral"
+              >
+                {sendError}
+              </p>
+            )}
           </>
         ) : (
           <div className="hidden flex-1 place-items-center text-ink-faint lg:grid">
